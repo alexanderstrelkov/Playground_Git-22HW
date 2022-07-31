@@ -20,7 +20,6 @@ public struct Chip {
     
     public func soldering() {
         let soderingTime = chipType.rawValue
-        print("Soldering time: \(chipType.rawValue) seconds")
         sleep(UInt32(soderingTime))
     }
 }
@@ -86,12 +85,13 @@ class ChipCreate: Thread {
         timer = Timer(timeInterval: 2, repeats: true) { [self] _ in
             let chip = Chip.make()
             storage.push(chip)
-            print("Chip created at \(Date.now)")
             if let element = storage.peek() {
-                print("Chip \(element.chipType) is added to storage") }
+                print("Chip \(element.chipType) created at \(Date.now)")
+            }
             isAvailable = true
             storage.condition.signal()
             storage.condition.unlock()
+            
             count += 1
             if count == 10 {
                 timer.invalidate()
@@ -111,11 +111,11 @@ class ChipSolder: Thread {
     
     override func main() {
         for _ in 1...10 {
-            while (!isAvailable) {
+            while !isAvailable {
                 storage.condition.wait()
             }
             if let chip = storage.peek() {
-                print("Taking \(chip.chipType) chip for soldering")
+                print("Soldering \(chip.chipType)")
                 storage.pop()?.soldering()
             }
             if storage.isEmpty {
