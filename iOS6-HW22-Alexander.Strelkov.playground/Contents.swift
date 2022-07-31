@@ -1,5 +1,7 @@
 import Foundation
 
+var isAvailable = false
+
 public struct Chip {
     public enum ChipType: UInt32 {
         case small = 1
@@ -25,9 +27,9 @@ public struct Chip {
 
 class Storage<Element> {
     
-    private var condition = NSCondition()
+    var condition = NSCondition()
     
-    private var array = [Element]()
+    var array = [Element]()
     
     init() {}
     
@@ -69,11 +71,7 @@ class Storage<Element> {
 class ChipCreate: Thread {
     
     private var timer = Timer()
-    static var available = false
-    static let condition = NSCondition()
-    static var isCreating = true
     private var count = Int()
-    
     private var storage: Storage<Chip>
     
     init(storage: Storage<Chip>) {
@@ -86,18 +84,16 @@ class ChipCreate: Thread {
     
     func createChip() {
         timer = Timer(timeInterval: 2, repeats: true) { [self] _ in
-            ChipCreate.condition.lock()
             let chip = Chip.make()
             storage.push(chip)
-            print("\(count * 2) seconds")
+            print("Chip created at \(Date.now)")
             if let element = storage.peek() {
                 print("Chip \(element.chipType) is added to storage") }
-            ChipCreate.available = true
-            ChipCreate.condition.signal()
-            ChipCreate.condition.unlock()
+            isAvailable = true
+            storage.condition.signal()
+            storage.condition.unlock()
             count += 1
             if count == 10 {
-                ChipCreate.isCreating = false
                 timer.invalidate()
             }
         }
@@ -113,22 +109,19 @@ class ChipSolder: Thread {
         self.storage = storage
     }
     
-    private var available = false
-    private let condition = NSCondition()
-    
     override func main() {
-        while ChipCreate.isCreating {
-            while !ChipCreate.available {
-                ChipCreate.condition.wait()
+        for _ in 1...10 {
+            while (!isAvailable) {
+                storage.condition.wait()
             }
             if let chip = storage.peek() {
-                print("\(chip.chipType) remove from storage")
+                print("Taking \(chip.chipType) chip for soldering")
                 storage.pop()?.soldering()
             }
             if storage.isEmpty {
-                ChipCreate.available = false
+                isAvailable = false
             }
-            print("==Soldering finished!==")
+            print("==SOLDERING FINISHED== at \(Date.now)")
         }
     }
 }
